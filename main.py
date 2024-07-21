@@ -1,10 +1,11 @@
 import json
 import os
+import time
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.svm import SVC
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, roc_auc_score
 import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
@@ -89,9 +90,6 @@ adult_data = load_and_preprocess_data("adult_characters.json")
 underage_labels = [1] * len(underage_data)
 adult_labels = [0] * len(adult_data)
 
-print(f"Adult: {len(adult_data)}")
-print(f"Underage: {len(underage_data)}")
-
 labels = underage_labels + adult_labels
 all_data = underage_data + adult_data
 
@@ -105,19 +103,22 @@ vectorizer = TfidfVectorizer()
 X_train_vectorized = vectorizer.fit_transform(X_train)
 X_test_vectorized = vectorizer.transform(X_test)
 
-model = SVC(kernel="linear")
+model = SVC(kernel="linear", probability=True)
 model.fit(X_train_vectorized, y_train)
 
+y_pred_proba = model.predict_proba(X_test_vectorized)[:, 1]
 y_pred = model.predict(X_test_vectorized)
 print(classification_report(y_Test, y_pred))
+
+roc_auc = roc_auc_score(y_Test, y_pred_proba)
+print(f"ROC-AUC Score: {roc_auc:.2f}")
 
 
 def is_underage(text: str) -> bool:
     preprocessed = preprocess_text(text)
     vectorized = vectorizer.transform([preprocessed])
-    prediction = model.predict(vectorized)
-
-    return True if prediction[0] == 1 else False
+    proba = model.predict_proba(vectorized)[0, 1]
+    return proba
 
 
 def classify_character(character: dict) -> bool:
@@ -148,12 +149,12 @@ def test_character_classification(char_type: str):
 
     for character in characters:
         print(
-            f"{character['data']['name']} - is underage? {classify_character(character)}"
+            f"{character['data']['name']} - is underage? {classify_character(character) > 0.5}"
         )
 
 
-# test_character_classification("adult")
-# test_character_classification("underage")
+test_character_classification("adult")
+test_character_classification("underage")
 
 
 def convert_to_onnx():
@@ -165,7 +166,9 @@ def convert_to_onnx():
     with open("underage_classifier.onnx", "wb") as f:
         f.write(onx.SerializeToString())
 
-convert_to_onnx()
+
+if not os.path.exists("underage_classifier.onnx"):
+    convert_to_onnx()
 
 sess = rt.InferenceSession("underage_classifier.onnx")
 input_name = sess.get_inputs()[0].name
@@ -217,7 +220,3 @@ def test_character_classification_onnx(char_type: str):
         print(
             f"{character['data']['name']} - is underage? {classify_character_onnx(character)}"
         )
-
-
-test_character_classification_onnx("adult")
-test_character_classification_onnx("underage")
