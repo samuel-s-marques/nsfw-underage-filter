@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 BASE_URL = "https://api.chub.ai/api"
 SEARCH_URL = f"{BASE_URL}/characters/search"
 DOWNLOAD_URL = f"{BASE_URL}/characters/download"
-OUTPUT_FOLDER = "characters/underage" # adult or underage
+OUTPUT_FOLDER = "characters/adult" # adult or underage
 
 underage_tags = [
     "loli",
@@ -28,8 +28,8 @@ def get_characters(page):
     params = {
         "limit": 100,
         "nsfw": "true",
-        "tags": ",".join(underage_tags),
-        #"exclude_tags": ",".join(underage_tags),
+        #"tags": ",".join(underage_tags),
+        "exclude_tags": ",".join(underage_tags),
         "page": page,
     }
 
@@ -41,9 +41,6 @@ def get_characters(page):
                 "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36"
             },
         )
-
-        print(f"Status code: {response.status_code}")
-        print(response.url)
 
         return response.json()
     except Exception as e:
@@ -69,7 +66,7 @@ def main():
         os.makedirs(OUTPUT_FOLDER)
 
     page = 1
-    max_page = 5
+    max_page = 30
     total_count = None
 
     try:
