@@ -57,6 +57,9 @@ def load_and_preprocess_data(file_path):
 
             if item["data"]["tags"] != []:
                 char += f" {', '.join(item['data']['tags'])}"
+            
+            if item["data"]["scenario"] != "":
+                char += f" {item['data']['scenario']}"
 
             processed_data.append(char)
 
