@@ -132,6 +132,9 @@ def classify_character(character: dict):
 
     if character["data"]["first_mes"] != "":
         char += f" {character['data']['first_mes']}"
+    
+    if character["data"]["scenario"] != "":
+        char += f" {character['data']['scenario']}"
 
     if character["data"]["tags"] != []:
         char += f" {', '.join(character['data']['tags'])}"
