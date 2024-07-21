@@ -9,6 +9,14 @@ import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from nltk.stem import PorterStemmer
+from skl2onnx import convert_sklearn
+from skl2onnx.common.data_types import FloatTensorType
+import onnxruntime as rt
+import numpy as np
+import onnx
+from onnx import version_converter, helper
+from onnxruntime.quantization.preprocess import quant_pre_process
+from onnxruntime.quantization import quantize_dynamic, QuantType
 
 from character_parser import parse_png
 
@@ -139,8 +147,77 @@ def test_character_classification(char_type: str):
                 characters.append(character)
 
     for character in characters:
-        print(f"{character['data']['name']} - is underage? {classify_character(character)}")
+        print(
+            f"{character['data']['name']} - is underage? {classify_character(character)}"
+        )
 
 
-test_character_classification("adult")
-test_character_classification("underage")
+# test_character_classification("adult")
+# test_character_classification("underage")
+
+
+def convert_to_onnx():
+    initial_type = [
+        ("float_input", FloatTensorType([None, X_train_vectorized.shape[1]]))
+    ]
+    onx = convert_sklearn(model, initial_types=initial_type)
+
+    with open("underage_classifier.onnx", "wb") as f:
+        f.write(onx.SerializeToString())
+
+convert_to_onnx()
+
+sess = rt.InferenceSession("underage_classifier.onnx")
+input_name = sess.get_inputs()[0].name
+label_name = sess.get_outputs()[0].name
+
+
+def predict_onnx(text):
+    preprocessed = preprocess_text(text)
+    vectorized = vectorizer.transform([preprocessed]).toarray().astype(np.float32)
+    pred_onx = sess.run([label_name], {input_name: vectorized})[0]
+    return pred_onx[0]
+
+
+def is_underage_onnx(text: str) -> bool:
+    preprocessed = preprocess_text(text)
+    vectorized = vectorizer.transform([preprocessed]).toarray().astype(np.float32)
+    prediction = sess.run([label_name], {input_name: vectorized})[0]
+
+    return True if prediction[0] == 1 else False
+
+
+def classify_character_onnx(character: dict) -> bool:
+    char = f"{character['data']['name']} {character['data']['description']}"
+
+    if character["data"]["first_mes"] != "":
+        char += f" {character['data']['first_mes']}"
+
+    if character["data"]["tags"] != []:
+        char += f" {', '.join(character['data']['tags'])}"
+
+    return is_underage_onnx(char)
+
+
+def test_character_classification_onnx(char_type: str):
+    characters = []
+
+    for filename in os.listdir(f"test/{char_type}"):
+        if filename.endswith(".png"):
+            file_path = os.path.join(f"test/{char_type}", filename)
+
+            with open(file_path, "rb") as f:
+                png_data = f.read()
+
+            character = parse_png(png_data)
+            if character is not None:
+                characters.append(character)
+
+    for character in characters:
+        print(
+            f"{character['data']['name']} - is underage? {classify_character_onnx(character)}"
+        )
+
+
+test_character_classification_onnx("adult")
+test_character_classification_onnx("underage")
