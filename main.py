@@ -114,14 +114,17 @@ roc_auc = roc_auc_score(y_Test, y_pred_proba)
 print(f"ROC-AUC Score: {roc_auc:.2f}")
 
 
-def is_underage(text: str) -> bool:
+def is_underage(text: str):
     preprocessed = preprocess_text(text)
     vectorized = vectorizer.transform([preprocessed])
     proba = model.predict_proba(vectorized)[0, 1]
-    return proba
+
+    score = proba.item() if hasattr(proba, "item") else proba
+
+    return score
 
 
-def classify_character(character: dict) -> bool:
+def classify_character(character: dict):
     char = f"{character['data']['name']} {character['data']['description']}"
 
     if character["data"]["first_mes"] != "":
